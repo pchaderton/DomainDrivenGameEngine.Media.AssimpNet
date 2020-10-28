@@ -55,6 +55,7 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
         /// <inheritdoc/>
         public override Model Load(Stream stream, string path)
         {
+            var pathDirectory = Path.GetFullPath(Path.GetDirectoryName(path));
             using (var context = new AssimpContext())
             {
                 var postProcessSteps = PostProcessSteps.GenerateSmoothNormals |
@@ -84,7 +85,7 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
                         vertices.Add(new Vertex(new Vector3(position.X, position.Y, position.Z),
                                                 new Vector3(normal.X, normal.Y, normal.Z),
                                                 new Vector3(tangent.X, tangent.Y, tangent.Z),
-                                                color != null ? new VertexColor(color.Value.R, color.Value.G, color.Value.B, color.Value.A) : default,
+                                                color != null ? new VertexColor(color.Value.R, color.Value.G, color.Value.B, color.Value.A) : new VertexColor(1.0f, 1.0f, 1.0f, 1.0f),
                                                 textureCoordinate != null ? new Vector2(textureCoordinate.Value.X, textureCoordinate.Value.Y) : Vector2.Zero));
                     }
 
@@ -95,8 +96,8 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
                         : null;
 
                     var textures = material.GetAllMaterialTextures()
-                                           ?.Select(t => t.FilePath)
-                                           .Where(t => !string.IsNullOrWhiteSpace(t))
+                                           ?.Where(t => !string.IsNullOrWhiteSpace(t.FilePath))
+                                           .Select(t => Path.IsPathFullyQualified(t.FilePath) ? t.FilePath : Path.Combine(pathDirectory, t.FilePath))
                                            .ToList();
 
                     meshes.Add(new DomainMesh(vertices,

@@ -3,7 +3,7 @@
   <PropertyGroup>
     <PackageId>DomainDrivenGameEngine.Media.AssimpNet</PackageId>
     <Description>An AssimpNet implementation of interfaces defined in DomainDrivenGameEngine.Media.</Description>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <Authors>Preston Chaderton</Authors>
     <Company>Preston Chaderton</Company>
     <RepositoryUrl>https://github.com/pchaderton/DomainDrivenGameEngine.Media.AssimpNet</RepositoryUrl>

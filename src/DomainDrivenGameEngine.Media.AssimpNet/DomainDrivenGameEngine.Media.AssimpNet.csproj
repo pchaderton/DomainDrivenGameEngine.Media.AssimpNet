@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>DomainDrivenGameEngine.Media.AssimpNet</PackageId>
+    <Description>An AssimpNet implementation of interfaces defined in DomainDrivenGameEngine.Media.</Description>
+    <Version>0.1.0</Version>
+    <Authors>Preston Chaderton</Authors>
+    <Company>Preston Chaderton</Company>
+    <RepositoryUrl>https://github.com/pchaderton/DomainDrivenGameEngine.Media.AssimpNet</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AssimpNet" Version="4.1.0" />
+    <PackageReference Include="DomainDrivenGameEngine.Media" Version="0.1.17" />
+    <PackageReference Include="DomainDrivenGameEngine.RuleSet" Version="0.1.2">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>

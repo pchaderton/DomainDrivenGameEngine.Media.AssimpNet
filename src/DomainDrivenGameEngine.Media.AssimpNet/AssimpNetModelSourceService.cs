@@ -60,7 +60,8 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
             {
                 var postProcessSteps = PostProcessSteps.GenerateSmoothNormals |
                                        PostProcessSteps.CalculateTangentSpace |
-                                       PostProcessSteps.Triangulate;
+                                       PostProcessSteps.Triangulate |
+                                       PostProcessSteps.FlipUVs;
 
                 var scene = context.ImportFileFromStream(stream, postProcessSteps, Path.GetExtension(path));
 

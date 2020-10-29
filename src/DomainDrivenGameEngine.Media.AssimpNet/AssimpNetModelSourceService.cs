@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
@@ -6,13 +7,14 @@ using Assimp;
 using DomainDrivenGameEngine.Media.Models;
 using DomainDrivenGameEngine.Media.Services;
 using DomainMesh = DomainDrivenGameEngine.Media.Models.Mesh;
+using DomainTexture = DomainDrivenGameEngine.Media.Models.Texture;
 
 namespace DomainDrivenGameEngine.Media.AssimpNet
 {
     /// <summary>
     /// An AssimpNet-based source for sourcing models.
     /// </summary>
-    public class AssimpNetModelSourceService : BaseStreamMediaSourceService<Model>
+    public class AssimpNetModelSourceService : BaseMediaSourceService<Model>
     {
         /// <summary>
         /// The extensions this source service supports.
@@ -44,16 +46,22 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
         };
 
         /// <summary>
+        /// Services for sourcing textures from embedded texture data.
+        /// </summary>
+        private IMediaSourceService<DomainTexture>[] _textureSourceServices;
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="AssimpNetModelSourceService"/> class.
         /// </summary>
-        /// <param name="fileStreamService">The <see cref="IFileStreamService"/> to use for streaming file data.</param>
-        public AssimpNetModelSourceService(IFileStreamService fileStreamService)
-            : base(SupportedExtensions, fileStreamService)
+        /// <param name="textureSourceServices">Services for sourcing textures from embedded texture data.</param>
+        public AssimpNetModelSourceService(IMediaSourceService<DomainTexture>[] textureSourceServices)
+            : base(SupportedExtensions)
         {
+            _textureSourceServices = textureSourceServices ?? throw new ArgumentNullException(nameof(textureSourceServices));
         }
 
         /// <inheritdoc/>
-        public override Model Load(Stream stream, string path)
+        public override Model Load(Stream stream, string path, string extension)
         {
             var pathDirectory = Path.GetFullPath(Path.GetDirectoryName(path));
             using (var context = new AssimpContext())
@@ -64,6 +72,8 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
                                        PostProcessSteps.FlipUVs;
 
                 var scene = context.ImportFileFromStream(stream, postProcessSteps, Path.GetExtension(path));
+
+                var embeddedTextures = scene.Textures.Select(ConvertToDomainTexture).ToList();
 
                 var meshes = new List<DomainMesh>();
                 foreach (var sceneMesh in scene.Meshes)
@@ -96,18 +106,60 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
                         ? scene.Materials.ElementAtOrDefault(sceneMesh.MaterialIndex)
                         : null;
 
-                    var textures = material.GetAllMaterialTextures()
-                                           ?.Where(t => !string.IsNullOrWhiteSpace(t.FilePath))
-                                           .Select(t => Path.IsPathFullyQualified(t.FilePath) ? t.FilePath : Path.Combine(pathDirectory, t.FilePath))
-                                           .ToList();
+                    var textures = material.GetAllMaterialTextures();
+
+                    var texturePaths = textures?.Where(t => !string.IsNullOrWhiteSpace(t.FilePath) && !t.FilePath.StartsWith("*"))
+                                               .Select(t => t.FilePath)
+                                               .ToList();
+
+                    var embeddedTextureIndices = textures?.Where(t => !string.IsNullOrWhiteSpace(t.FilePath) && t.FilePath.StartsWith("*"))
+                                                         .Select(t => (uint?)uint.Parse(t.FilePath.Remove(0, 1)))
+                                                         .ToList();
 
                     meshes.Add(new DomainMesh(vertices,
                                               indices,
-                                              textures));
+                                              texturePaths,
+                                              embeddedTextureIndices: embeddedTextureIndices));
                 }
 
                 return new Model(meshes);
             }
+        }
+
+        /// <summary>
+        /// Converts a texture embedded in the model to a domain texture.
+        /// </summary>
+        /// <param name="embeddedTexture">The embedded texture to convert.</param>
+        /// <returns>The resulting domain texture.</returns>
+        private DomainTexture ConvertToDomainTexture(EmbeddedTexture embeddedTexture)
+        {
+            if (embeddedTexture.IsCompressed)
+            {
+                var extension = $".{embeddedTexture.CompressedFormatHint}";
+                var sourceService = _textureSourceServices.FirstOrDefault(s => s.IsExtensionSupported(extension));
+                if (sourceService == null)
+                {
+                    throw new Exception($"No available source service for loading embedded texture with extension '{extension}'.");
+                }
+
+                using (var memoryStream = new MemoryStream(embeddedTexture.CompressedData))
+                {
+                    return sourceService.Load(memoryStream, string.Empty, extension);
+                }
+            }
+
+            var bytes = new byte[embeddedTexture.Width * embeddedTexture.Height * 4];
+            int index = 0;
+            foreach (var texel in embeddedTexture.NonCompressedData)
+            {
+                bytes[index] = texel.R;
+                bytes[index + 1] = texel.G;
+                bytes[index + 2] = texel.B;
+                bytes[index + 3] = texel.A;
+                index += 4;
+            }
+
+            return new DomainTexture(embeddedTexture.Width, embeddedTexture.Height, PixelFormat.Rgba8, bytes);
         }
     }
 }

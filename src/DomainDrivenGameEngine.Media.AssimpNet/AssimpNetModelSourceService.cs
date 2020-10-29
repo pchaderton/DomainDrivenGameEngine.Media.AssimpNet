@@ -122,7 +122,7 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
                                               embeddedTextureIndices: embeddedTextureIndices));
                 }
 
-                return new Model(meshes);
+                return new Model(meshes, embeddedTextures);
             }
         }
 

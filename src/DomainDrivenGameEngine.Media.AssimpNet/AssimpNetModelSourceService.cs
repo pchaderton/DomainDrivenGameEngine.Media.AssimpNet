@@ -74,10 +74,14 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
                                                          .Select(t => (uint?)uint.Parse(t.FilePath.Remove(0, 1)))
                                                          .ToList();
 
+                    var meshTextures = material.GetAllMaterialTextures()
+                                               ?.Where(t => !string.IsNullOrWhiteSpace(t.FilePath))
+                                               .Select(t => GetMeshTexture(t))
+                                               .ToList();
+
                     meshes.Add(new DomainMesh(vertices,
                                               indices,
-                                              texturePaths,
-                                              embeddedTextureIndices: embeddedTextureIndices));
+                                              meshTextures));
                 }
 
                 var skeletonRoot = GetSkeletonNode(scene.RootNode);
@@ -262,6 +266,49 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
                                          input[4, 2],
                                          input[4, 3],
                                          input[4, 4]);
+        }
+
+        /// <summary>
+        /// Converts a <see cref="TextureSlot"/> into a <see cref="MeshTexture"/>.
+        /// </summary>
+        /// <param name="textureSlot">The source <see cref="TextureSlot"/>.</param>
+        /// <returns>The resulting <see cref="MeshTexture"/>.</returns>
+        private MeshTexture GetMeshTexture(TextureSlot textureSlot)
+        {
+            var usageType = GetTextureUsageType(textureSlot.TextureType);
+            if (textureSlot.FilePath.StartsWith('*'))
+            {
+                var embeddedTextureIndex = uint.Parse(textureSlot.FilePath.Remove(0, 1));
+                return new MeshTexture(embeddedTextureIndex: embeddedTextureIndex, usageType: usageType);
+            }
+
+            return new MeshTexture(path: textureSlot.FilePath, usageType: usageType);
+        }
+
+        /// <summary>
+        /// Converts a <see cref="TextureType"/> into a <see cref="TextureUsageType"/>.
+        /// </summary>
+        /// <param name="textureType">The source <see cref="TextureType"/>.</param>
+        /// <returns>The resulting <see cref="TextureUsageType"/>.</returns>
+        private TextureUsageType GetTextureUsageType(TextureType textureType)
+        {
+            switch (textureType)
+            {
+                case TextureType.Diffuse:
+                    return TextureUsageType.Diffuse;
+                case TextureType.Specular:
+                    return TextureUsageType.Specular;
+                case TextureType.Ambient:
+                    return TextureUsageType.Ambient;
+                case TextureType.Emissive:
+                    return TextureUsageType.Emission;
+                case TextureType.Height:
+                    return TextureUsageType.Height;
+                case TextureType.Normals:
+                    return TextureUsageType.Normal;
+                default:
+                    return TextureUsageType.Unknown;
+            }
         }
     }
 }

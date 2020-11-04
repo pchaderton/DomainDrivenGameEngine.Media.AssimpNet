@@ -84,7 +84,7 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
 
             var quaternion = new NumericsQuaternion(assimpQuaternion.X, assimpQuaternion.Y, assimpQuaternion.Z, assimpQuaternion.W);
 
-            return new DomainQuaternionKeyFrame(assimpQuaternionKey.Time * ticksPerSecond, quaternion);
+            return new DomainQuaternionKeyFrame(assimpQuaternionKey.Time / ticksPerSecond, quaternion);
         }
 
         /// <summary>
@@ -99,7 +99,7 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
 
             var vector = new NumericsVector3(assimpVector3d.X, assimpVector3d.Y, assimpVector3d.Z);
 
-            return new DomainVector3KeyFrame(assimpVectorKey.Time * ticksPerSecond, vector);
+            return new DomainVector3KeyFrame(assimpVectorKey.Time / ticksPerSecond, vector);
         }
     }
 }

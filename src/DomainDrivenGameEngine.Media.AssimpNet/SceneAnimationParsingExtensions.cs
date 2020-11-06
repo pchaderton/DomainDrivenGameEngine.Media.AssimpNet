@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using Assimp;
 using DomainDrivenGameEngine.Media.Models;
@@ -57,17 +58,25 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
             var channels = new List<DomainChannel>();
             foreach (var channel in animation.NodeAnimationChannels)
             {
-                var rotationKeyFrames = channel.RotationKeys.Select(rk => GetDomainQuaternionKeyFrame(rk, ticksPerSecond)).ToList();
-                var offsetKeyFrames = channel.PositionKeys.Select(ok => GetDomainVector3KeyFrame(ok, ticksPerSecond)).ToList();
-                var scaleKeyFrames = channel.ScalingKeys.Select(sk => GetDomainVector3KeyFrame(sk, ticksPerSecond)).ToList();
+                var rotationKeyFrames = channel.RotationKeys
+                                               .Select(rk => GetDomainQuaternionKeyFrame(rk, ticksPerSecond))
+                                               .ToArray();
+                var offsetKeyFrames = channel.PositionKeys
+                                             .Select(ok => GetDomainVector3KeyFrame(ok, ticksPerSecond))
+                                             .ToArray();
+                var scaleKeyFrames = channel.ScalingKeys
+                                            .Select(sk => GetDomainVector3KeyFrame(sk, ticksPerSecond))
+                                            .ToArray();
 
                 channels.Add(new DomainChannel(channel.NodeName,
-                                               rotationKeyFrames,
-                                               offsetKeyFrames,
-                                               scaleKeyFrames));
+                                               new ReadOnlyCollection<DomainQuaternionKeyFrame>(rotationKeyFrames),
+                                               new ReadOnlyCollection<DomainVector3KeyFrame>(offsetKeyFrames),
+                                               new ReadOnlyCollection<DomainVector3KeyFrame>(scaleKeyFrames)));
             }
 
-            return new DomainAnimation(animation.Name, channels, durationInSeconds);
+            return new DomainAnimation(animation.Name,
+                                       new ReadOnlyCollection<DomainChannel>(channels.ToArray()),
+                                       durationInSeconds);
         }
 
         /// <summary>

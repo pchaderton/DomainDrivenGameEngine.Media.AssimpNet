@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Numerics;
@@ -49,7 +50,7 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
 
                 var scene = context.ImportFileFromStream(stream, postProcessSteps, extension);
 
-                var embeddedTextures = scene.Textures.Select(ConvertToDomainTexture).ToList();
+                var embeddedTextures = scene.Textures.Select(ConvertToDomainTexture).ToArray();
 
                 var boneIndexByName = GetBoneIndexByNameLookup(scene.RootNode);
 
@@ -77,16 +78,20 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
                     var meshTextures = material.GetAllMaterialTextures()
                                                ?.Where(t => !string.IsNullOrWhiteSpace(t.FilePath))
                                                .Select(t => GetMeshTexture(t))
-                                               .ToList();
+                                               .ToArray()
+                                               ?? new MeshTexture[0];
 
-                    meshes.Add(new DomainMesh(vertices,
-                                              indices,
-                                              meshTextures));
+                    meshes.Add(new DomainMesh(new ReadOnlyCollection<Vertex>(vertices),
+                                              new ReadOnlyCollection<uint>(indices),
+                                              new ReadOnlyCollection<MeshTexture>(meshTextures)));
                 }
 
                 var skeletonRoot = GetSkeletonNode(scene.RootNode);
 
-                return new Model(meshes, embeddedTextures, skeletonRoot, scene.GetAnimationCollection());
+                return new Model(new ReadOnlyCollection<DomainMesh>(meshes.ToArray()),
+                                 new ReadOnlyCollection<DomainTexture>(embeddedTextures),
+                                 skeletonRoot,
+                                 scene.GetAnimationCollection());
             }
         }
 
@@ -123,7 +128,7 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
                 index += 4;
             }
 
-            return new DomainTexture(embeddedTexture.Width, embeddedTexture.Height, PixelFormat.Rgba8, bytes);
+            return new DomainTexture(embeddedTexture.Width, embeddedTexture.Height, PixelFormat.Rgba8, new ReadOnlyCollection<byte>(bytes));
         }
 
         /// <summary>
@@ -131,14 +136,14 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
         /// </summary>
         /// <param name="node">The <see cref="AssimpNode"/> to get the lookup from.</param>
         /// <returns>A dictionary lookup of name to index.</returns>
-        private Dictionary<string, byte> GetBoneIndexByNameLookup(AssimpNode node)
+        private Dictionary<string, uint> GetBoneIndexByNameLookup(AssimpNode node)
         {
             var nodeStack = new Stack<AssimpNode>();
 
             nodeStack.Push(node);
 
-            byte index = 0;
-            var result = new Dictionary<string, byte>();
+            uint index = 0;
+            var result = new Dictionary<string, uint>();
             while (nodeStack.Count > 0)
             {
                 var currentNode = nodeStack.Pop();
@@ -160,7 +165,7 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
         /// <param name="sceneMesh">The <see cref="AssimpMesh"/> to get vertex information from.</param>
         /// <param name="boneIndexByName">A lookup of bone index by name information.</param>
         /// <returns>An output list of vertices.</returns>
-        private IReadOnlyCollection<Vertex> GetMeshVertices(AssimpMesh sceneMesh, Dictionary<string, byte> boneIndexByName)
+        private Vertex[] GetMeshVertices(AssimpMesh sceneMesh, Dictionary<string, uint> boneIndexByName)
         {
             var positions = sceneMesh.Vertices;
             var normals = sceneMesh.Normals;
@@ -184,11 +189,11 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
                                         new Vector3(tangent.X, tangent.Y, tangent.Z),
                                         color != null ? new VertexColor(color.Value.R, color.Value.G, color.Value.B, color.Value.A) : new VertexColor(1.0f, 1.0f, 1.0f, 1.0f),
                                         textureCoordinate != null ? new Vector2(textureCoordinate.Value.X, textureCoordinate.Value.Y) : Vector2.Zero,
-                                        boneIndices,
-                                        boneWeights));
+                                        new ReadOnlyCollection<uint>(boneIndices),
+                                        new ReadOnlyCollection<float>(boneWeights)));
             }
 
-            return vertices;
+            return vertices.ToArray();
         }
 
         /// <summary>
@@ -197,12 +202,12 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
         /// <param name="boneIndexByName">A lookup of bone name to index.</param>
         /// <param name="sceneMesh">The scene mesh to get weight information from.</param>
         /// <returns>A dictionary lookup of bone indices and weights by vertex index.</returns>
-        private Dictionary<int, List<KeyValuePair<byte, float>>> GetBoneWeightsByVertexIndex(Dictionary<string, byte> boneIndexByName,
+        private Dictionary<int, List<KeyValuePair<uint, float>>> GetBoneWeightsByVertexIndex(Dictionary<string, uint> boneIndexByName,
                                                                                              AssimpMesh sceneMesh)
         {
             return sceneMesh.Bones
                             .SelectMany(bone => bone.VertexWeights.Select(weight => new Tuple<AssimpBone, VertexWeight>(bone, weight)))
-                            .GroupBy(tuple => tuple.Item2.VertexID, tuple => new KeyValuePair<byte, float>(boneIndexByName[tuple.Item1.Name], tuple.Item2.Weight))
+                            .GroupBy(tuple => tuple.Item2.VertexID, tuple => new KeyValuePair<uint, float>(boneIndexByName[tuple.Item1.Name], tuple.Item2.Weight))
                             .ToDictionary(group => group.Key, group => group.ToList());
         }
 
@@ -214,17 +219,17 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
         /// <param name="boneIndices">The output indices for the vertex.</param>
         /// <param name="boneWeights">The output weights for the vertex.</param>
         /// <returns><c>true</c> if bone indices and weights could be found for a vertex.</returns>
-        private bool TryGetBoneIndicesAndWeights(Dictionary<int, List<KeyValuePair<byte, float>>> boneWeightsByVertexIndex,
+        private bool TryGetBoneIndicesAndWeights(Dictionary<int, List<KeyValuePair<uint, float>>> boneWeightsByVertexIndex,
                                                  int vertexIndex,
-                                                 out List<byte> boneIndices,
-                                                 out List<float> boneWeights)
+                                                 out uint[] boneIndices,
+                                                 out float[] boneWeights)
         {
             boneIndices = null;
             boneWeights = null;
             if (boneWeightsByVertexIndex.TryGetValue(vertexIndex, out var boneWeightKvps))
             {
-                boneIndices = boneWeightKvps.Select(kvp => kvp.Key).ToList();
-                boneWeights = boneWeightKvps.Select(kvp => kvp.Value).ToList();
+                boneIndices = boneWeightKvps.Select(kvp => kvp.Key).ToArray();
+                boneWeights = boneWeightKvps.Select(kvp => kvp.Value).ToArray();
                 return true;
             }
 
@@ -240,7 +245,7 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
         {
             var childrenBones = node.Children.Select(child => GetSkeletonNode(child)).ToArray();
 
-            return new DomainBone(GetNumericsMatrix4x4(node.Transform), node.Name, childrenBones);
+            return new DomainBone(GetNumericsMatrix4x4(node.Transform), node.Name, new ReadOnlyCollection<DomainBone>(childrenBones));
         }
 
         /// <summary>

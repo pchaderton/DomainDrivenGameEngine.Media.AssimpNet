@@ -187,7 +187,7 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
                 vertices.Add(new Vertex(new Vector3(position.X, position.Y, position.Z),
                                         new Vector3(normal.X, normal.Y, normal.Z),
                                         new Vector3(tangent.X, tangent.Y, tangent.Z),
-                                        color != null ? new VertexColor(color.Value.R, color.Value.G, color.Value.B, color.Value.A) : new VertexColor(1.0f, 1.0f, 1.0f, 1.0f),
+                                        color != null ? new Color(color.Value.R, color.Value.G, color.Value.B, color.Value.A) : new Color(1.0f, 1.0f, 1.0f, 1.0f),
                                         textureCoordinate != null ? new Vector2(textureCoordinate.Value.X, textureCoordinate.Value.Y) : Vector2.Zero,
                                         new ReadOnlyCollection<uint>(boneIndices),
                                         new ReadOnlyCollection<float>(boneWeights)));

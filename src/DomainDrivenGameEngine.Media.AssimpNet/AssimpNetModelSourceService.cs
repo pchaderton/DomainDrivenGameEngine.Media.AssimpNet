@@ -86,7 +86,7 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
                                               new ReadOnlyCollection<MeshTexture>(meshTextures)));
                 }
 
-                var skeletonRoot = GetSkeletonNode(scene.RootNode);
+                var skeletonRoot = GetSkeletonNode(scene.RootNode, isRootNode: true);
 
                 return new Model(new ReadOnlyCollection<DomainMesh>(meshes.ToArray()),
                                  new ReadOnlyCollection<DomainTexture>(embeddedTextures),
@@ -240,12 +240,16 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
         /// Gets a <see cref="DomainBone"/> for a given <see cref="AssimpNode"/>.
         /// </summary>
         /// <param name="node">The <see cref="AssimpNode"/> to get a skeleton node from.</param>
+        /// <param name="isRootNode">A value indicating if this is the root skeleton node.</param>
         /// <returns>The resulting <see cref="DomainBone"/>.</returns>
-        private DomainBone GetSkeletonNode(AssimpNode node)
+        private DomainBone GetSkeletonNode(AssimpNode node, bool isRootNode)
         {
-            var childrenBones = node.Children.Select(child => GetSkeletonNode(child)).ToArray();
+            var childrenBones = node.Children.Select(child => GetSkeletonNode(child, false)).ToArray();
 
-            return new DomainBone(GetNumericsMatrix4x4(node.Transform), node.Name, new ReadOnlyCollection<DomainBone>(childrenBones));
+            return new DomainBone(GetNumericsMatrix4x4(node.Transform),
+                                  node.Name,
+                                  new ReadOnlyCollection<DomainBone>(childrenBones),
+                                  computeWorldToBindMatrices: isRootNode);
         }
 
         /// <summary>

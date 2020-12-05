@@ -5,7 +5,7 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
     /// <summary>
     /// Constants for providing which formats Assimp.Net supports.
     /// </summary>
-    public static class AssimpNetFormatConstants
+    internal static class AssimpNetFormatConstants
     {
         /// <summary>
         /// The extensions Assimp.Net supports.

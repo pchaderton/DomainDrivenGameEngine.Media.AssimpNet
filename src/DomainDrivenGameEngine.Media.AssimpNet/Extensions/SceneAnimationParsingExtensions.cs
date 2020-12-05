@@ -12,12 +12,12 @@ using DomainVector3KeyFrame = DomainDrivenGameEngine.Media.Models.KeyFrame<Syste
 using NumericsQuaternion = System.Numerics.Quaternion;
 using NumericsVector3 = System.Numerics.Vector3;
 
-namespace DomainDrivenGameEngine.Media.AssimpNet
+namespace DomainDrivenGameEngine.Media.AssimpNet.Extensions
 {
     /// <summary>
     /// Extension methods for the Assimp <see cref="Scene"/> class.
     /// </summary>
-    public static class SceneAnimationParsingExtensions
+    internal static class SceneAnimationParsingExtensions
     {
         /// <summary>
         /// Gets an animation collection from an Assimp scene.

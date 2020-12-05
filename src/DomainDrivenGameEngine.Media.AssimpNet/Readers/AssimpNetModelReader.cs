@@ -5,8 +5,9 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 using Assimp;
+using DomainDrivenGameEngine.Media.AssimpNet.Extensions;
 using DomainDrivenGameEngine.Media.Models;
-using DomainDrivenGameEngine.Media.Services;
+using DomainDrivenGameEngine.Media.Readers;
 using AssimpBone = Assimp.Bone;
 using AssimpMatrix4x4 = Assimp.Matrix4x4;
 using AssimpMesh = Assimp.Mesh;
@@ -16,30 +17,30 @@ using DomainMesh = DomainDrivenGameEngine.Media.Models.Mesh;
 using DomainTexture = DomainDrivenGameEngine.Media.Models.Texture;
 using NumericsMatrix4x4 = System.Numerics.Matrix4x4;
 
-namespace DomainDrivenGameEngine.Media.AssimpNet
+namespace DomainDrivenGameEngine.Media.AssimpNet.Readers
 {
     /// <summary>
-    /// An AssimpNet-based source for sourcing models.
+    /// An AssimpNet-based reader for reading models.
     /// </summary>
-    public class AssimpNetModelSourceService : BaseMediaSourceService<Model>
+    public class AssimpNetModelReader : BaseMediaReader<Model>
     {
         /// <summary>
-        /// Services for sourcing textures from embedded texture data.
+        /// Readers for reading textures from embedded texture data.
         /// </summary>
-        private IMediaSourceService<DomainTexture>[] _textureSourceServices;
+        private IMediaReader<DomainTexture>[] _textureReaders;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="AssimpNetModelSourceService"/> class.
+        /// Initializes a new instance of the <see cref="AssimpNetModelReader"/> class.
         /// </summary>
-        /// <param name="textureSourceServices">Services for sourcing textures from embedded texture data.</param>
-        public AssimpNetModelSourceService(IMediaSourceService<DomainTexture>[] textureSourceServices)
+        /// <param name="textureReader">Readers for reading textures from embedded texture data.</param>
+        public AssimpNetModelReader(IMediaReader<DomainTexture>[] textureReader)
             : base(AssimpNetFormatConstants.SupportedExtensions)
         {
-            _textureSourceServices = textureSourceServices ?? throw new ArgumentNullException(nameof(textureSourceServices));
+            _textureReaders = textureReader ?? throw new ArgumentNullException(nameof(textureReader));
         }
 
         /// <inheritdoc/>
-        public override Model Load(Stream stream, string path, string extension)
+        public override Model Read(Stream stream, string path, string extension)
         {
             using (var context = new AssimpContext())
             {
@@ -91,7 +92,8 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
                 return new Model(new ReadOnlyCollection<DomainMesh>(meshes.ToArray()),
                                  new ReadOnlyCollection<DomainTexture>(embeddedTextures),
                                  skeletonRoot,
-                                 scene.GetAnimationCollection());
+                                 scene.GetAnimationCollection(),
+                                 stream);
             }
         }
 
@@ -105,16 +107,17 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
             if (embeddedTexture.IsCompressed)
             {
                 var extension = $".{embeddedTexture.CompressedFormatHint}";
-                var sourceService = _textureSourceServices.FirstOrDefault(s => s.IsExtensionSupported(extension));
-                if (sourceService == null)
+                var textureReader = _textureReaders.FirstOrDefault(s => s.IsExtensionSupported(extension));
+                if (textureReader == null)
                 {
-                    throw new Exception($"No available source service for loading embedded texture with extension '{extension}'.");
+                    throw new Exception($"No available reader for loading embedded texture with extension '{extension}'.");
                 }
 
-                using (var memoryStream = new MemoryStream(embeddedTexture.CompressedData))
-                {
-                    return sourceService.Load(memoryStream, string.Empty, extension);
-                }
+                // Don't automatically dispose of the stream here, as it may be necessary for the final loading
+                // process, at which point the stream will be disposed of afterwards.
+                var memoryStream = new MemoryStream(embeddedTexture.CompressedData);
+
+                return textureReader.Read(memoryStream, string.Empty, extension);
             }
 
             var bytes = new byte[embeddedTexture.Width * embeddedTexture.Height * 4];
@@ -128,7 +131,7 @@ namespace DomainDrivenGameEngine.Media.AssimpNet
                 index += 4;
             }
 
-            return new DomainTexture(embeddedTexture.Width, embeddedTexture.Height, PixelFormat.Rgba8, new ReadOnlyCollection<byte>(bytes));
+            return new DomainTexture(embeddedTexture.Width, embeddedTexture.Height, TextureFormat.Rgba32, new ReadOnlyCollection<byte>(bytes));
         }
 
         /// <summary>
